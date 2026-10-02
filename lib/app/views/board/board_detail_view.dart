@@ -1,0 +1,600 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:get/get.dart';
+import 'package:intl/intl.dart';
+import '../../controllers/auth_profile_controller.dart';
+import '../../controllers/board_controller.dart';
+import '../../data/models/member_model.dart';
+import '../../theme/app_theme.dart';
+import 'add_member_dialog.dart';
+import 'edit_member_dialog.dart';
+
+class BoardDetailView extends StatelessWidget {
+  const BoardDetailView({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final boardId = Get.arguments as String?;
+    final boardController = Get.find<BoardController>();
+    final authController = Get.find<AuthProfileController>();
+
+    if (boardId == null) {
+      return Scaffold(
+        appBar: AppBar(),
+        body: Center(child: Text('no_data_found'.tr)),
+      );
+    }
+
+    return Obx(() {
+      final board = boardController.getBoardById(boardId);
+
+      if (board == null) {
+        return Scaffold(
+          appBar: AppBar(),
+          body: Center(child: Text('no_data_found'.tr)),
+        );
+      }
+
+      final color = Color(board.themeColorValue);
+      final currentUserId = authController.user.value?.id ?? '';
+      final isManager = board.managerId == currentUserId ||
+          board.members.any((m) => m.id == currentUserId && (m.role == MemberRole.manager || m.role == MemberRole.coManager));
+
+      final createdDateStr = DateFormat('d MMM yyyy').format(board.createdAt);
+
+      final managerCount = board.members.where((m) => m.role == MemberRole.manager).length;
+      final coManagerCount = board.members.where((m) => m.role == MemberRole.coManager).length;
+      final memberCount = board.members.where((m) => m.role == MemberRole.member).length;
+
+      return Scaffold(
+        backgroundColor: const Color(0xFFF8FAFC),
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: Color(0xFF0F172A)),
+            onPressed: () => Get.back(),
+          ),
+          title: Text(
+            board.title,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF0F172A),
+            ),
+          ),
+          actions: [
+            if (isManager)
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.more_vert_rounded, color: Color(0xFF64748B)),
+                onSelected: (val) {
+                  if (val == 'delete') {
+                    _confirmDelete(context, boardController, board.id);
+                  }
+                },
+                itemBuilder: (context) => [
+                  PopupMenuItem(
+                    value: 'delete',
+                    child: Row(
+                      children: [
+                        const Icon(Icons.delete_outline_rounded, color: AppColors.danger, size: 20),
+                        const SizedBox(width: 8),
+                        Text('delete'.tr, style: const TextStyle(color: AppColors.danger)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+          ],
+        ),
+        body: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            // Group Info Card
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 26,
+                        backgroundColor: color.withValues(alpha: 0.15),
+                        child: Icon(Icons.restaurant_rounded, size: 26, color: color),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              board.title,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFF0F172A),
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '${board.sportType.tr} • তৈরি: $createdDateStr',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF64748B),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (board.description.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      board.description,
+                      style: const TextStyle(fontSize: 13, color: Color(0xFF475569), height: 1.3),
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+                  const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                  const SizedBox(height: 14),
+
+                  // Compact Code & QR Code Button Row
+                  Row(
+                    children: [
+                      // Group Code Pill with Copy
+                      Expanded(
+                        child: InkWell(
+                          onTap: () {
+                            Clipboard.setData(ClipboardData(text: board.boardCode));
+                            Get.snackbar(
+                              'success'.tr,
+                              'code_copied'.tr,
+                              snackPosition: SnackPosition.BOTTOM,
+                              backgroundColor: const Color(0xFF0F172A),
+                              colorText: Colors.white,
+                              margin: const EdgeInsets.all(16),
+                              borderRadius: 12,
+                              icon: const Icon(Icons.check_circle_outline, color: AppColors.primaryLight),
+                            );
+                          },
+                          borderRadius: BorderRadius.circular(10),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: const Color(0xFFE2E8F0)),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Icon(Icons.tag_rounded, size: 16, color: Color(0xFF64748B)),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      board.boardCode,
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w800,
+                                        color: Color(0xFF0F172A),
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const Icon(Icons.copy_rounded, size: 14, color: Color(0xFF64748B)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+
+                      // Compact QR Code Button
+                      InkWell(
+                        onTap: () => _showQrModal(context, board.title, board.boardCode, color),
+                        borderRadius: BorderRadius.circular(10),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: color.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: color.withValues(alpha: 0.3)),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.qr_code_scanner_rounded, size: 16, color: color),
+                              const SizedBox(width: 6),
+                              Text(
+                                'QR কোড',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: color,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Group Members & Role Overview Stats
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildStatColumn('মোট সদস্য', '${board.members.length}', Icons.groups_rounded, color),
+                  Container(width: 1, height: 32, color: const Color(0xFFE2E8F0)),
+                  _buildStatColumn('ম্যানেজার', '$managerCount', Icons.admin_panel_settings_rounded, AppColors.primary),
+                  Container(width: 1, height: 32, color: const Color(0xFFE2E8F0)),
+                  _buildStatColumn('সহকারী ম্যানেজার', '$coManagerCount', Icons.supervisor_account_rounded, AppColors.secondary),
+                  Container(width: 1, height: 32, color: const Color(0xFFE2E8F0)),
+                  _buildStatColumn('মেম্বার', '$memberCount', Icons.person_outline_rounded, const Color(0xFF64748B)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Members Section Header
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'members'.tr,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF0F172A),
+                  ),
+                ),
+                if (isManager)
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      Get.dialog(
+                        AddMemberDialog(
+                          onAdd: (name, phone, role) {
+                            boardController.addMember(
+                              boardId: board.id,
+                              name: name,
+                              phone: phone,
+                              role: role,
+                            );
+                            Get.snackbar(
+                              'success'.tr,
+                              'member_added_success'.tr,
+                              snackPosition: SnackPosition.BOTTOM,
+                              backgroundColor: const Color(0xFF0F172A),
+                              colorText: Colors.white,
+                              margin: const EdgeInsets.all(16),
+                              borderRadius: 12,
+                            );
+                          },
+                        ),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: color,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    icon: const Icon(Icons.person_add_alt_1_rounded, size: 15),
+                    label: Text(
+                      'add_member'.tr,
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 10),
+
+            // Members List
+            if (board.members.isEmpty)
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Center(
+                  child: Text('no_members_yet'.tr, style: const TextStyle(color: Color(0xFF64748B))),
+                ),
+              )
+            else
+              ...board.members.map((member) => _buildMemberTile(context, boardController, board.id, member, isManager)),
+
+            const SizedBox(height: 30),
+          ],
+        ),
+      );
+    });
+  }
+
+  Widget _buildStatColumn(String label, String value, IconData icon, Color color) {
+    return Column(
+      children: [
+        Icon(icon, size: 18, color: color),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+        ),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 10, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+        ),
+      ],
+    );
+  }
+
+  // Member Tile with Role Badge & Clean Edit Dialog
+  Widget _buildMemberTile(
+    BuildContext context,
+    BoardController controller,
+    String boardId,
+    MemberModel member,
+    bool isManager,
+  ) {
+    final isGroupAdmin = member.role == MemberRole.manager;
+    final isCoManager = member.role == MemberRole.coManager;
+
+    final roleColor = isGroupAdmin
+        ? AppColors.primary
+        : isCoManager
+            ? AppColors.secondary
+            : const Color(0xFF64748B);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFF1F5F9)),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+        onTap: isManager
+            ? () {
+                Get.dialog(
+                  EditMemberDialog(
+                    boardId: boardId,
+                    member: member,
+                  ),
+                );
+              }
+            : null,
+        leading: CircleAvatar(
+          radius: 20,
+          backgroundColor: roleColor.withValues(alpha: 0.15),
+          child: Text(
+            member.name.isNotEmpty ? member.name[0] : '?',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: roleColor,
+              fontSize: 15,
+            ),
+          ),
+        ),
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                member.name,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF0F172A),
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 8),
+            // Role Badge
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: roleColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                member.roleDisplayNameKey.tr,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: roleColor,
+                ),
+              ),
+            ),
+          ],
+        ),
+        subtitle: member.phone.isNotEmpty
+            ? Text(member.phone, style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)))
+            : null,
+        trailing: isManager
+            ? IconButton(
+                icon: const Icon(Icons.edit_outlined, size: 18, color: Color(0xFF64748B)),
+                onPressed: () {
+                  Get.dialog(
+                    EditMemberDialog(
+                      boardId: boardId,
+                      member: member,
+                    ),
+                  );
+                },
+              )
+            : null,
+      ),
+    );
+  }
+
+  // QR Modal Dialog
+  void _showQrModal(BuildContext context, String title, String code, Color color) {
+    Get.dialog(
+      Dialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'QR কোড স্ক্যান করুন',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, size: 20, color: Color(0xFF64748B)),
+                    onPressed: () => Get.back(),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+              ),
+              const SizedBox(height: 14),
+
+              // QR Box
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: SizedBox(
+                  width: 180,
+                  height: 180,
+                  child: CustomPaint(
+                    painter: QrPainter(code, color),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              Text(
+                code,
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, letterSpacing: 2),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'অ্যাপের "Join Group" এ গিয়ে এই কোড বা QR স্ক্যান করে মেম্বার হিসেবে যুক্ত হওয়া যাবে।',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 12, color: Color(0xFF64748B), height: 1.4),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _confirmDelete(BuildContext context, BoardController controller, String boardId) {
+    Get.defaultDialog(
+      title: 'delete'.tr,
+      titleStyle: const TextStyle(fontWeight: FontWeight.bold),
+      middleText: 'confirm_delete'.tr,
+      textConfirm: 'delete'.tr,
+      textCancel: 'cancel'.tr,
+      confirmTextColor: Colors.white,
+      buttonColor: AppColors.danger,
+      onConfirm: () async {
+        await controller.deleteBoard(boardId);
+        Get.back();
+        Get.back();
+      },
+    );
+  }
+}
+
+// Crisp Vector QR Painter
+class QrPainter extends CustomPainter {
+  final String data;
+  final Color color;
+
+  QrPainter(this.data, this.color);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = const Color(0xFF0F172A)
+      ..style = PaintingStyle.fill;
+
+    final cellWidth = size.width / 17;
+    final cellHeight = size.height / 17;
+
+    // Corner Position Detection Patterns
+    _drawFinderPattern(canvas, 0, 0, cellWidth, cellHeight, paint);
+    _drawFinderPattern(canvas, 10 * cellWidth, 0, cellWidth, cellHeight, paint);
+    _drawFinderPattern(canvas, 0, 10 * cellHeight, cellWidth, cellHeight, paint);
+
+    final hash = data.hashCode.abs();
+    for (int r = 0; r < 17; r++) {
+      for (int c = 0; c < 17; c++) {
+        if ((r < 7 && c < 7) || (r < 7 && c >= 10) || (r >= 10 && c < 7)) {
+          continue;
+        }
+        final bit = ((hash ^ (r * 19 + c * 31)) % 3) == 0;
+        if (bit || (r == 7 || c == 7 || r == 9 || c == 9)) {
+          canvas.drawRRect(
+            RRect.fromRectAndRadius(
+              Rect.fromLTWH(c * cellWidth + 0.5, r * cellHeight + 0.5, cellWidth - 1, cellHeight - 1),
+              const Radius.circular(1.5),
+            ),
+            paint,
+          );
+        }
+      }
+    }
+  }
+
+  void _drawFinderPattern(Canvas canvas, double x, double y, double cw, double ch, Paint paint) {
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(Rect.fromLTWH(x, y, cw * 7, ch * 7), const Radius.circular(6)),
+      paint,
+    );
+    final whitePaint = Paint()..color = Colors.white;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(Rect.fromLTWH(x + cw, y + ch, cw * 5, ch * 5), const Radius.circular(4)),
+      whitePaint,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(Rect.fromLTWH(x + cw * 2, y + ch * 2, cw * 3, ch * 3), const Radius.circular(3)),
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
