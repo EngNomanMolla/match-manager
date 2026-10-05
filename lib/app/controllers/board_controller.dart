@@ -196,6 +196,10 @@ class BoardController extends GetxController {
     required String sportType,
     required String description,
     required Color themeColor,
+    String periodType = 'months',
+    List<String> selectedMonths = const [],
+    DateTime? startDate,
+    DateTime? endDate,
   }) async {
     final currentUser = _authProfileController.user.value;
     if (currentUser == null) return false;
@@ -210,6 +214,10 @@ class BoardController extends GetxController {
       managerName: currentUser.name,
       themeColorValue: themeColor.toARGB32(),
       createdAt: DateTime.now(),
+      periodType: periodType,
+      selectedMonths: selectedMonths,
+      startDate: startDate,
+      endDate: endDate,
       members: [
         MemberModel(
           id: currentUser.id,

@@ -175,13 +175,6 @@ class _AddMemberDialogState extends State<AddMemberDialog> {
                   icon: Icons.supervisor_account_rounded,
                   color: AppColors.secondary,
                 ),
-                const SizedBox(height: 6),
-                _buildRoleOption(
-                  role: MemberRole.manager,
-                  title: 'manager'.tr,
-                  icon: Icons.admin_panel_settings_rounded,
-                  color: AppColors.primary,
-                ),
                 const SizedBox(height: 22),
 
                 // Dialog Buttons

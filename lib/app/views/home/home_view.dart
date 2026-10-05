@@ -320,7 +320,7 @@ class _HomeViewState extends State<HomeView> {
         subtitle: Padding(
           padding: const EdgeInsets.only(top: 3),
           child: Text(
-            '${board.members.length} ${'members'.tr} • ${board.sportType.tr}',
+            '${board.members.length} ${'members'.tr} • ${board.periodDisplayName}',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(

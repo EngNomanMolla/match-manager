@@ -1,3 +1,5 @@
+import 'package:intl/intl.dart';
+import 'meal_type_model.dart';
 import 'member_model.dart';
 
 class BoardModel {
@@ -11,6 +13,11 @@ class BoardModel {
   final int themeColorValue;
   final DateTime createdAt;
   final List<MemberModel> members;
+  final List<MealTypeModel> meals;
+  final String periodType; // 'months' or 'custom_date'
+  final List<String> selectedMonths; // e.g. ['2026-10', '2026-11']
+  final DateTime? startDate;
+  final DateTime? endDate;
 
   BoardModel({
     required this.id,
@@ -23,7 +30,12 @@ class BoardModel {
     this.themeColorValue = 0xFF059669,
     required this.createdAt,
     required this.members,
-  });
+    List<MealTypeModel>? meals,
+    this.periodType = 'months',
+    this.selectedMonths = const [],
+    this.startDate,
+    this.endDate,
+  }) : meals = meals ?? MealTypeModel.defaultMeals;
 
   Map<String, dynamic> toJson() {
     return {
@@ -37,6 +49,11 @@ class BoardModel {
       'themeColorValue': themeColorValue,
       'createdAt': createdAt.toIso8601String(),
       'members': members.map((m) => m.toJson()).toList(),
+      'meals': meals.map((m) => m.toJson()).toList(),
+      'periodType': periodType,
+      'selectedMonths': selectedMonths,
+      'startDate': startDate?.toIso8601String(),
+      'endDate': endDate?.toIso8601String(),
     };
   }
 
@@ -57,6 +74,21 @@ class BoardModel {
               ?.map((m) => MemberModel.fromJson(m as Map<String, dynamic>))
               .toList() ??
           [],
+      meals: (json['meals'] as List<dynamic>?)
+              ?.map((m) => MealTypeModel.fromJson(m as Map<String, dynamic>))
+              .toList() ??
+          MealTypeModel.defaultMeals,
+      periodType: json['periodType'] ?? 'months',
+      selectedMonths: (json['selectedMonths'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
+      startDate: json['startDate'] != null
+          ? DateTime.tryParse(json['startDate'])
+          : null,
+      endDate: json['endDate'] != null
+          ? DateTime.tryParse(json['endDate'])
+          : null,
     );
   }
 
@@ -71,6 +103,11 @@ class BoardModel {
     int? themeColorValue,
     DateTime? createdAt,
     List<MemberModel>? members,
+    List<MealTypeModel>? meals,
+    String? periodType,
+    List<String>? selectedMonths,
+    DateTime? startDate,
+    DateTime? endDate,
   }) {
     return BoardModel(
       id: id ?? this.id,
@@ -83,6 +120,45 @@ class BoardModel {
       themeColorValue: themeColorValue ?? this.themeColorValue,
       createdAt: createdAt ?? this.createdAt,
       members: members ?? this.members,
+      meals: meals ?? this.meals,
+      periodType: periodType ?? this.periodType,
+      selectedMonths: selectedMonths ?? this.selectedMonths,
+      startDate: startDate ?? this.startDate,
+      endDate: endDate ?? this.endDate,
     );
+  }
+
+  String get periodDisplayName {
+    if (periodType == 'custom_date' && startDate != null && endDate != null) {
+      final startStr = DateFormat('d MMM yyyy').format(startDate!);
+      final endStr = DateFormat('d MMM yyyy').format(endDate!);
+      return '$startStr - $endStr';
+    }
+
+    if (selectedMonths.isNotEmpty) {
+      return selectedMonths.map((ym) {
+        try {
+          final parts = ym.split('-');
+          final year = int.parse(parts[0]);
+          final month = int.parse(parts[1]);
+          return formatMonthYear(month, year);
+        } catch (_) {
+          return ym;
+        }
+      }).join(', ');
+    }
+
+    return formatMonthYear(createdAt.month, createdAt.year);
+  }
+
+  static String formatMonthYear(int month, int year) {
+    const bnMonths = [
+      'জানুয়ারি', 'ফেব্রুয়ারি', 'মার্চ', 'এপ্রিল', 'মে', 'জুন',
+      'জুলাই', 'আগস্ট', 'সেপ্টেম্বর', 'অক্টোবর', 'নভেম্বর', 'ডিসেম্বর'
+    ];
+    if (month >= 1 && month <= 12) {
+      return '${bnMonths[month - 1]} $year';
+    }
+    return '$month/$year';
   }
 }

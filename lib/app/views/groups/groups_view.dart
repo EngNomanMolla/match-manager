@@ -194,7 +194,7 @@ class GroupsView extends StatelessWidget {
           ),
         ),
         subtitle: Text(
-          '${board.members.length} ${'members'.tr} • ${board.sportType.tr}',
+          '${board.members.length} ${'members'.tr} • ${board.periodDisplayName}',
           style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
         ),
         trailing: Row(

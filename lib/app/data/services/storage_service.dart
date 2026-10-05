@@ -1,6 +1,9 @@
 import 'dart:convert';
 import 'package:get_storage/get_storage.dart';
+import '../models/bazar_model.dart';
 import '../models/board_model.dart';
+import '../models/chat_message_model.dart';
+import '../models/meal_vote_model.dart';
 import '../models/user_model.dart';
 
 class StorageService {
@@ -10,6 +13,9 @@ class StorageService {
   static const String _keyBoards = 'created_boards';
   static const String _keyJoinedBoardCodes = 'joined_board_codes';
   static const String _keyLanguage = 'selected_language';
+  static const String _keyMealVotes = 'board_meal_votes';
+  static const String _keyBazarList = 'board_bazar_list';
+  static const String _keyChatMessages = 'board_chat_messages';
 
   Future<void> init() async {
     await GetStorage.init();
@@ -63,6 +69,57 @@ class StorageService {
 
   Future<void> saveJoinedBoardCodes(List<String> codes) async {
     await _box.write(_keyJoinedBoardCodes, codes);
+  }
+
+  // Meal Votes
+  List<MealVoteModel> getMealVotes() {
+    final raw = _box.read(_keyMealVotes);
+    if (raw == null) return [];
+    try {
+      final List<dynamic> list = raw is String ? jsonDecode(raw) : raw;
+      return list.map((item) => MealVoteModel.fromJson(Map<String, dynamic>.from(item))).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> saveMealVotes(List<MealVoteModel> votes) async {
+    final jsonList = votes.map((v) => v.toJson()).toList();
+    await _box.write(_keyMealVotes, jsonList);
+  }
+
+  // Bazar List
+  List<BazarModel> getBazarList() {
+    final raw = _box.read(_keyBazarList);
+    if (raw == null) return [];
+    try {
+      final List<dynamic> list = raw is String ? jsonDecode(raw) : raw;
+      return list.map((item) => BazarModel.fromJson(Map<String, dynamic>.from(item))).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> saveBazarList(List<BazarModel> list) async {
+    final jsonList = list.map((v) => v.toJson()).toList();
+    await _box.write(_keyBazarList, jsonList);
+  }
+
+  // Chat Messages
+  List<ChatMessageModel> getChatMessages() {
+    final raw = _box.read(_keyChatMessages);
+    if (raw == null) return [];
+    try {
+      final List<dynamic> list = raw is String ? jsonDecode(raw) : raw;
+      return list.map((item) => ChatMessageModel.fromJson(Map<String, dynamic>.from(item))).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> saveChatMessages(List<ChatMessageModel> list) async {
+    final jsonList = list.map((v) => v.toJson()).toList();
+    await _box.write(_keyChatMessages, jsonList);
   }
 
   // Language
